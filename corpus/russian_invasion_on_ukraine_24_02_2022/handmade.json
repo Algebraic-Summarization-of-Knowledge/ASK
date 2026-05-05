@@ -1,0 +1,58 @@
+{
+  "Informacje powielające się": [
+    {
+      "BBC": "Russia has begun a large-scale military attack on Ukraine, its southern neighbour, on the orders of Russian President Vladimir Putin. There are reports of attacks on Ukrainian military infrastructure across the country, and Russian convoys entering from all directions.",
+      "AlJazeera": "Russian President Vladimir Putin has launched a military operation in Ukraine, with explosions heard across the country and Ukraine’s foreign minister warning a “full-scale invasion” was under way."
+    },
+    {
+      "BBC": "Ukraine has declared martial law - which means the military takes control temporarily.",
+      "AlJazeera": "Zelenskyy said that martial law had been declared."
+    },
+    {
+      "BBC": "US President Joe Biden said Mr Putin had \"chosen a premeditated war that will bring a catastrophic loss of life and human suffering\".",
+      "AlJazeera": "US President Joe Biden, who has ruled out putting US troops on the ground in Ukraine, said Putin had chosen a premeditated war that would bring a “catastrophic loss of life and human suffering”."
+    }
+  ],
+  "Różnice/doprecyzowanie informacji/pojawiające się w A, niepojawiające się w B": {
+    "Różnica (BBC \\ Al Jazeera)": [
+      "Precyzja czasowa: \"In a televised speech at 05:55 Moscow time (02:55 GMT)\".",
+      "Lokalizacja ofiar: \"including six in an air strike in Brovary near the capital Kyiv. A man was also killed in shelling outside the major eastern city of Kharkiv.\".",
+      "Straty wojskowe: \"Ukraine said it had killed 50 Russian troops.\" oraz \"Ukraine had suffered losses and a lot of aircraft and armoured vehicles had been destroyed.\".",
+      "Działania dyplomatyczne/ekonomiczne: \"It has cut diplomatic ties with Russia, offered weapons to anyone who wants them and declared an overnight curfew for Kyiv.\" oraz \"Foreign Minister Dmytro Kuleba implored the world to impose devastating sanctions, including banning Russia from the international Swift bank transfer system\".",
+      "Relacja z Kramatorska: \"Further east in Kramatorsk... Sarah Rainsford said people did not expect such a full-on assault. 'People were out on the streets last night... waving the Ukrainian flag. They said this was their land. They were going nowhere'\".",
+      "Dane rynkowe: \"Oil prices surged above $100 for the first time in more than seven years. Meanwhile Russia's currency, the rouble, fell to an all-time low against the dollar and the euro.\".",
+      "Cytat Borisa Johnsona: \"UK Prime Minister Boris Johnson said that the 'hideous and barbaric venture by Vladimir Putin must end in failure.'\".",
+      "Kontrowersyjny cytat Trumpa: \"However President Donald Trump says Mr Putin took advantage of American 'weakness'... 'I think he wanted to do something and negotiate, and it got worse and worse, and then he saw the weakness'\"."
+    ],
+    "Różnica (AlJaazera \\ BBC)": [
+      "Kontekst militarny przed atakiem: \"Putin, who had massed between 150,000 and 200,000 troops along the borders of Ukraine.\".",
+      "Przyczyna rosyjskich żądań: \"Russia has demanded an end to NATO’s eastward expansion and said Ukrainian membership of the US-led Atlantic military alliance was unacceptable.\".",
+      "Szczegóły o cyberbezpieczeństwie: \"An official also reported non-stop cyberattacks.\".",
+      "Blokada przestrzeni powietrznej: \"Ukraine closed its airspace to civilian flights citing a high risk to safety, while Russia suspended domestic flights at airports near its border with Ukraine until March 2.\".",
+      "Postępy separatystów: \"Russian-backed separatists in the east said they had captured two towns, the RIA news agency reported.\".",
+      "Reakcja Japonii: \"In response, Western countries and Japan have imposed sanctions on Russian banks and individuals.\".",
+      "Cytat Antonio Guterresa: \"UN chief Antonio Guterres urged Russia 'in the name of humanity' to step back from what could be 'the worst war since the beginning of the century... with an impact we cannot even foresee.'\".",
+      "Izolacja polityczna: \"The European Union’s foreign policy chief Josep Borrell said Russia faces 'unprecedented isolation' over its attack on Ukraine\""
+    ]
+  },
+  "Konflikty/sprzeczne fakty?": [
+    {
+      "temat": "Desant w Odessie i Mariupolu",
+      "BBC": "\"There have also been reports of troops landing by sea at the Black Sea port cities of Mariupol and Odesa in the south.\"",
+      "AL JAZEERA": "\"Ukrainian media reported that... Russian troops had landed in the southern port cities of Odesa and Mariupol.\"",
+      "explanation": "Al Jazeera podaje to jako fakt dokonany/zaraportowany przez media, BBC zachowuje większy dystans, używając frazy \"reports of\"."
+    },
+    {
+      "temat": "Zestrzelenie maszyn",
+      "BBC": "BBC (Ukraina): \"The Ukrainian armed forces said they had shot down five Russian planes and a helicopter...\" BBC (Rosja): \"...which Russia denies...\"",
+      "AL JAZEERA": "\"Russia’s defence ministry said it had taken out military infrastructure at Ukrainian airbases and degraded its air defences.\"",
+      "explanation": "Różne narracje, AlJazeera w ogóle o tym nie wspomniało"
+    },
+    {
+      "temat": "Cele ataku i ofiary",
+      "BBC": "BBC (Rosja): \"Russia's defence ministry has denied attacking Ukrainian cities - saying it was targeting military infrastructure, air defence and air forces with 'high-precision weapons'.\" BBC (Relacja): \"About 10 civilians are believed to have been killed, including six in an air strike in Brovary near the capital Kyiv.\"",
+      "AL JAZEERA": "\"Russian President Vladimir Putin has launched a military operation in Ukraine, with explosions heard across the country\"",
+      "explanation": "Military operation, uogólnione, a BBC mówi, że Rosja zaprzecza ataku na cywili (później pisząc, że trochę z nich umarło)."
+    }
+  ]
+}
