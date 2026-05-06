@@ -1,0 +1,60 @@
+{
+  "analiza_kontekstowa_ustawienia": {
+    "metodologia": "Greedy Sentence-to-Sentence Contextual Mapping",
+    "workflow": {
+      "krok_1_ekstrakcja": "Podział tekstów wejściowych (Źródło A, Źródło B) na pojedyncze zdania.",
+      "krok_2_kontekstualizacja": "Dla każdego zdania S(n) utworzenie okna kontekstowego obejmującego [S(n-1) + S(n) + S(n+1)].",
+      "krok_3_mapowanie": "LLM porównuje każdą paczkę ze Źródła A z pełną treścią Źródła B w celu znalezienia odpowiedników, różnic lub sprzeczności."
+    }
+  },
+  "system_prompt": {
+    "rola": "Analityk OSINT / Ekspert weryfikacji informacji",
+    "zadanie": "Rygorystyczna analiza porównawcza dwóch tekstów dotyczących tego samego wydarzenia.",
+    "cele": [
+      "Identyfikacja punktów wspólnych (faktów potwierdzonych przez oba źródła).",
+      "Wykrywanie asymetrii informacyjnej (szczegóły obecne tylko w jednym źródle).",
+      "Detekcja konfliktów i niuansów (sprzeczności w liczbach, różnice w atrybucji typu 'fakt' vs 'doniesienia')."
+    ],
+    "instrukcja_formatowania": "Zwróć wynik wyłącznie w formacie JSON. Zachowaj cytaty 1:1 z tekstów źródłowych."
+  },
+  "schemat_wynikowy_json": {
+    "Informacje powielające się": [
+      {
+        "Zrodlo_A": "Tekst 1:1 z paczki A",
+        "Zrodlo_B": "Tekst 1:1 ze źródła B (pasujący)"
+      }
+    ],
+    "Różnice/doprecyzowanie informacji/pojawiające się w A, niepojawiające się w B": {
+      "Roznica_A_vs_B": [
+        "Kategoria: Opis unikalnej informacji w A (np. konkretne dane liczbowe, lokalizacje, cytaty)"
+      ],
+      "Roznica_B_vs_A": [
+        "Kategoria: Opis unikalnej informacji w B (np. tło polityczne, przyczyny, inne cytaty)"
+      ]
+    },
+    "Konflikty/sprzeczne fakty?": [
+      {
+        "temat": "Krótki opis spornego faktu (np. liczba ofiar, obecność wojsk)",
+        "Zrodlo_A": "Fragment 1:1 ze źródła A",
+        "Zrodlo_B": "Fragment 1:1 ze źródła B",
+        "explanation": "Szczegółowa analiza sprzeczności. Zwróć uwagę na manipulacje skalą (np. '1 osoba' vs '1500 osób') oraz dystans narracyjny (np. użycie 'reports of' vs stwierdzenie faktu)."
+      }
+    ]
+  },
+  "kryteria_wykrywania_niedostatkow": {
+    "automatyczna_detekcja_luk": [
+      {
+        "typ": "Halucynacja Logiczna",
+        "opis": "Uznanie zdań za tożsame mimo różnic w kwantyfikatorach (wszyscy/większość)."
+      },
+      {
+        "typ": "Pominięcie Modalności",
+        "opis": "Ignorowanie fraz dystansujących (np. 'podobno', 'według rządu') i traktowanie ich jako fakty obiektywne."
+      },
+      {
+        "typ": "Negative Space",
+        "opis": "Identyfikacja systematycznego pomijania niewygodnych faktów (np. strat własnych) przez dane źródło."
+      }
+    ]
+  }
+}
