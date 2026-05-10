@@ -206,13 +206,16 @@ def topic_from_pair(a: str, b: str) -> str:
 
 
 def conflicts_from_pairs(
-    sentences_a: Sequence[str], sentences_b: Sequence[str], pair_candidates: Sequence[Tuple[int, int, float]]
+    sentences_a: Sequence[str],
+    sentences_b: Sequence[str],
+    pair_candidates: Sequence[Tuple[int, int, float]],
+    conflict_min_similarity: float,
 ) -> List[Dict[str, str]]:
     conflicts: List[Dict[str, str]] = []
     seen: Set[Tuple[int, int]] = set()
 
     for i, j, sim in pair_candidates:
-        if (i, j) in seen or sim < 0.35:
+        if (i, j) in seen or sim < conflict_min_similarity:
             continue
         seen.add((i, j))
 
@@ -253,7 +256,21 @@ def conflicts_from_pairs(
 
 
 def build_output(sentences_a: Sequence[str], sentences_b: Sequence[str]) -> Dict[str, Any]:
-    strong_matches = greedy_matches(sentences_a, sentences_b, threshold=0.58)
+    return build_output_with_thresholds(
+        sentences_a,
+        sentences_b,
+        strong_match_threshold=0.58,
+        conflict_min_similarity=0.35,
+    )
+
+
+def build_output_with_thresholds(
+    sentences_a: Sequence[str],
+    sentences_b: Sequence[str],
+    strong_match_threshold: float,
+    conflict_min_similarity: float,
+) -> Dict[str, Any]:
+    strong_matches = greedy_matches(sentences_a, sentences_b, threshold=strong_match_threshold)
 
     repeated = [
         {
@@ -286,7 +303,12 @@ def build_output(sentences_a: Sequence[str], sentences_b: Sequence[str]) -> Dict
             pair_candidates.append((i, best_j, best_score))
 
     pair_candidates.sort(key=lambda t: t[2], reverse=True)
-    conflicts = conflicts_from_pairs(sentences_a, sentences_b, pair_candidates)
+    conflicts = conflicts_from_pairs(
+        sentences_a,
+        sentences_b,
+        pair_candidates,
+        conflict_min_similarity=conflict_min_similarity,
+    )
 
     return {
         "Informacje powielające się": repeated,
@@ -298,24 +320,63 @@ def build_output(sentences_a: Sequence[str], sentences_b: Sequence[str]) -> Dict
     }
 
 
+def analyze_texts(
+    text_a: str,
+    text_b: str,
+    strong_match_threshold: float = 0.58,
+    conflict_min_similarity: float = 0.35,
+) -> Dict[str, Any]:
+    cleaned_a = str(text_a).strip()
+    cleaned_b = str(text_b).strip()
+
+    if not cleaned_a or not cleaned_b:
+        raise ValueError("Brak tekstu do analizy.")
+
+    if not 0 <= strong_match_threshold <= 1:
+        raise ValueError("strong_match_threshold musi być w zakresie 0-1.")
+    if not 0 <= conflict_min_similarity <= 1:
+        raise ValueError("conflict_min_similarity musi być w zakresie 0-1.")
+
+    sentences_a = split_sentences(cleaned_a)
+    sentences_b = split_sentences(cleaned_b)
+    return build_output_with_thresholds(
+        sentences_a,
+        sentences_b,
+        strong_match_threshold=strong_match_threshold,
+        conflict_min_similarity=conflict_min_similarity,
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Porównanie artykułów bez LLM i zapis JSON w formacie handmade."
     )
     parser.add_argument(
         "--source-a",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/bbc.json",
+        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_bbc.json",
         help="Ścieżka do źródła A (BBC).",
     )
     parser.add_argument(
         "--source-b",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/aljaazera.json",
+        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_aljazeera.json",
         help="Ścieżka do źródła B (AlJazeera).",
     )
     parser.add_argument(
         "--output",
         default="corpus/russian_invasion_on_ukraine_24_02_2022/automated_without_llm.json",
         help="Ścieżka pliku wynikowego JSON.",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.58,
+        help="Próg dopasowania silnych par zdań (0-1).",
+    )
+    parser.add_argument(
+        "--conflict-threshold",
+        type=float,
+        default=0.35,
+        help="Minimalne podobieństwo dla kandydatów konfliktów (0-1).",
     )
     return parser.parse_args()
 
@@ -331,10 +392,12 @@ def main() -> None:
     if not text_a or not text_b:
         raise ValueError("Brak pola 'text' w jednym z plików źródłowych.")
 
-    sentences_a = split_sentences(text_a)
-    sentences_b = split_sentences(text_b)
-
-    result = build_output(sentences_a, sentences_b)
+    result = analyze_texts(
+        text_a=text_a,
+        text_b=text_b,
+        strong_match_threshold=args.threshold,
+        conflict_min_similarity=args.conflict_threshold,
+    )
 
     output_path = resolve_path(args.output, must_exist=False)
     output_path.parent.mkdir(parents=True, exist_ok=True)

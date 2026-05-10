@@ -98,13 +98,6 @@ def _resolve_api_key() -> str:
         "lub wpisz go do lokalnego pliku .env."
     )
 
-
-def _normalize_legacy_model_name(model_name: str) -> str:
-    if model_name.startswith("models/"):
-        return model_name
-    return f"models/{model_name}"
-
-
 def _strip_model_prefix(model_name: str) -> str:
     if model_name.startswith("models/"):
         return model_name.split("/", 1)[1]
@@ -124,10 +117,7 @@ def _pick_preferred_model(available_models: Iterable[str], requested_model: str)
     preferred_order = [
         requested_plain,
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
         "gemini-flash-latest",
-        "gemini-2.0-flash-lite",
-        "gemini-2.0-flash-lite-001",
         "gemini-2.5-flash-lite",
         "gemini-pro-latest",
     ]
@@ -201,7 +191,7 @@ def _generate_content(model_name: str, api_key: str, prompt: str) -> str:
                 legacy_model_name,
                 _pick_preferred_model(available_models, "gemini-2.5-flash"),
                 _pick_preferred_model(available_models, "gemini-flash-latest"),
-                _pick_preferred_model(available_models, "gemini-2.0-flash-lite"),
+                _pick_preferred_model(available_models, "gemini-2.5-flash-lite"),
             ]
             if candidate
         ]
@@ -323,12 +313,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--source-a",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/bbc.json",
+        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_bbc.json",
         help="Ścieżka do źródła A.",
     )
     parser.add_argument(
         "--source-b",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/aljaazera.json",
+        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_aljazeera.json",
         help="Ścieżka do źródła B.",
     )
     parser.add_argument(
