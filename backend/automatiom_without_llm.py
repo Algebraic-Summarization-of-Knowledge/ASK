@@ -347,24 +347,80 @@ def analyze_texts(
     )
 
 
+def _iter_article_jobs(corpus_dir: Path) -> List[Tuple[Path, Path, Path]]:
+    jobs: List[Tuple[Path, Path, Path]] = []
+    for topic_dir in sorted(path for path in corpus_dir.iterdir() if path.is_dir()):
+        article_paths = sorted(
+            path
+            for path in topic_dir.iterdir()
+            if path.is_file() and path.name.startswith("article_") and path.suffix == ".json"
+        )
+        if len(article_paths) < 2:
+            continue
+
+        source_a_path, source_b_path = article_paths[:2]
+        jobs.append((source_a_path, source_b_path, topic_dir / "automated_without_llm.json"))
+    return jobs
+
+
+def compare_corpus_without_llm(
+    corpus_dir: Path,
+    strong_match_threshold: float,
+    conflict_min_similarity: float,
+) -> List[Path]:
+    saved_paths: List[Path] = []
+
+    for source_a_path, source_b_path, output_path in _iter_article_jobs(corpus_dir):
+        source_a = read_json(source_a_path)
+        source_b = read_json(source_b_path)
+
+        text_a = str(source_a.get("text", "")).strip()
+        text_b = str(source_b.get("text", "")).strip()
+
+        if not text_a or not text_b:
+            raise ValueError(
+                f"Brak pola 'text' w jednym z plików źródłowych: {source_a_path} / {source_b_path}"
+            )
+
+        result = analyze_texts(
+            text_a=text_a,
+            text_b=text_b,
+            strong_match_threshold=strong_match_threshold,
+            conflict_min_similarity=conflict_min_similarity,
+        )
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+
+        saved_paths.append(output_path)
+
+    return saved_paths
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Porównanie artykułów bez LLM i zapis JSON w formacie handmade."
     )
     parser.add_argument(
+        "--corpus-dir",
+        default="corpus",
+        help="Katalog z podfolderami tematów i plikami article_*.json.",
+    )
+    parser.add_argument(
         "--source-a",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_bbc.json",
-        help="Ścieżka do źródła A (BBC).",
+        default=None,
+        help="Ścieżka do źródła A. Podaj razem z --source-b, aby uruchomić pojedyncze porównanie.",
     )
     parser.add_argument(
         "--source-b",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_aljazeera.json",
-        help="Ścieżka do źródła B (AlJazeera).",
+        default=None,
+        help="Ścieżka do źródła B. Podaj razem z --source-a, aby uruchomić pojedyncze porównanie.",
     )
     parser.add_argument(
         "--output",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/automated_without_llm.json",
-        help="Ścieżka pliku wynikowego JSON.",
+        default=None,
+        help="Ścieżka pliku wynikowego JSON dla trybu pojedynczej pary.",
     )
     parser.add_argument(
         "--threshold",
@@ -383,28 +439,52 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    source_a = read_json(resolve_path(args.source_a, must_exist=True))
-    source_b = read_json(resolve_path(args.source_b, must_exist=True))
 
-    text_a = str(source_a.get("text", "")).strip()
-    text_b = str(source_b.get("text", "")).strip()
+    if bool(args.source_a) != bool(args.source_b):
+        raise ValueError("Podaj jednocześnie --source-a i --source-b albo pomiń oba parametry.")
 
-    if not text_a or not text_b:
-        raise ValueError("Brak pola 'text' w jednym z plików źródłowych.")
+    if args.source_a and args.source_b:
+        source_a = read_json(resolve_path(args.source_a, must_exist=True))
+        source_b = read_json(resolve_path(args.source_b, must_exist=True))
 
-    result = analyze_texts(
-        text_a=text_a,
-        text_b=text_b,
+        text_a = str(source_a.get("text", "")).strip()
+        text_b = str(source_b.get("text", "")).strip()
+
+        if not text_a or not text_b:
+            raise ValueError("Brak pola 'text' w jednym z plików źródłowych.")
+
+        result = analyze_texts(
+            text_a=text_a,
+            text_b=text_b,
+            strong_match_threshold=args.threshold,
+            conflict_min_similarity=args.conflict_threshold,
+        )
+
+        output_path = (
+            resolve_path(args.output, must_exist=False)
+            if args.output
+            else resolve_path(args.source_a, must_exist=True).parent / "automated_without_llm.json"
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+
+        print(f"Zapisano wynik do: {output_path}")
+        return
+
+    corpus_dir = resolve_path(args.corpus_dir, must_exist=True)
+    saved_paths = compare_corpus_without_llm(
+        corpus_dir=corpus_dir,
         strong_match_threshold=args.threshold,
         conflict_min_similarity=args.conflict_threshold,
     )
 
-    output_path = resolve_path(args.output, must_exist=False)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    if not saved_paths:
+        print("Nie znaleziono żadnych par plików article_*.json do porównania.")
+        return
 
-    print(f"Zapisano wynik do: {args.output}")
+    for output_path in saved_paths:
+        print(f"Zapisano wynik do: {output_path}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import json
 import os
 import re
@@ -6,6 +7,8 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -157,6 +160,57 @@ def _raise_friendly_gemini_error(exc: Exception, model_name: str) -> None:
     raise exc
 
 
+def _generate_content_rest(model_name: str, api_key: str, prompt: str) -> str:
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model_name}:generateContent?key={api_key}"
+    )
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}],
+            }
+        ]
+    }
+    request = urllib_request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib_request.urlopen(request, timeout=120) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as exc:
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+        except Exception:
+            error_payload = {}
+        error_message = error_payload.get("error", {}).get("message") or str(exc)
+        if exc.code == 429:
+            raise RuntimeError(
+                f"Gemini API zwróciło 429 (quota exceeded) dla modelu '{model_name}'. Sprawdź billing i limity w Google AI Studio / Gemini API."
+            ) from exc
+        if exc.code == 404:
+            raise RuntimeError(
+                f"Model '{model_name}' nie jest dostępny w aktualnym API. Uruchom ze wspieranym modelem, np. --model gemini-2.5-flash."
+            ) from exc
+        raise RuntimeError(error_message) from exc
+
+    try:
+        candidates = response_payload["candidates"]
+        parts = candidates[0]["content"]["parts"]
+        text = "".join(part.get("text", "") for part in parts)
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Pusty response z modelu.") from exc
+
+    if not text:
+        raise RuntimeError("Pusty response z modelu.")
+    return text
+
+
 def _generate_content(model_name: str, api_key: str, prompt: str) -> str:
     try:
         from google import genai
@@ -173,11 +227,9 @@ def _generate_content(model_name: str, api_key: str, prompt: str) -> str:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", FutureWarning)
-                import google.generativeai as legacy_genai
+                legacy_genai = importlib.import_module("google.generativeai")
         except ImportError as exc:
-            raise ImportError(
-                "Brakuje pakietu Google GenAI. Zainstaluj 'google-genai' albo starszy 'google-generativeai'."
-            ) from exc
+            return _generate_content_rest(model_name, api_key, prompt)
 
         legacy_genai.configure(api_key=api_key)
         available_models = _list_legacy_generate_models(legacy_genai)
@@ -302,9 +354,45 @@ def compare_articles(
         json.dump(result, f, ensure_ascii=False, indent=2)
 
 
+def _iter_article_jobs(corpus_dir: Path) -> Iterable[tuple[Path, Path, Path]]:
+    for topic_dir in sorted(path for path in corpus_dir.iterdir() if path.is_dir()):
+        article_paths = sorted(
+            path
+            for path in topic_dir.iterdir()
+            if path.is_file() and path.name.startswith("article_") and path.suffix == ".json"
+        )
+        if len(article_paths) < 2:
+            continue
+
+        # Jedna analiza per folder: bierzemy pierwsze dwa pliki article_*.json i zapisujemy do automated.json.
+        source_a_path, source_b_path = article_paths[:2]
+        yield source_a_path, source_b_path, topic_dir / "automated.json"
+
+
+def compare_corpus(
+    instructions_path: Path,
+    corpus_dir: Path,
+    model_name: str,
+) -> int:
+    processed_count = 0
+
+    for source_a_path, source_b_path, output_path in _iter_article_jobs(corpus_dir):
+        compare_articles(
+            instructions_path=instructions_path,
+            source_a_path=source_a_path,
+            source_b_path=source_b_path,
+            output_path=output_path,
+            model_name=model_name,
+        )
+        processed_count += 1
+        print(f"Zapisano wynik do: {output_path}")
+
+    return processed_count
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Automatyczne porównanie dwóch artykułów i zapis wyniku do JSON."
+        description="Automatyczne porównanie artykułów i zapis wyniku do JSON."
     )
     parser.add_argument(
         "--instructions",
@@ -312,19 +400,24 @@ def parse_args() -> argparse.Namespace:
         help="Ścieżka do pliku instrukcji JSON.",
     )
     parser.add_argument(
+        "--corpus-dir",
+        default="corpus",
+        help="Katalog z podfolderami tematów i plikami article_*.json.",
+    )
+    parser.add_argument(
         "--source-a",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_bbc.json",
-        help="Ścieżka do źródła A.",
+        default=None,
+        help="Ścieżka do źródła A. Podaj razem z --source-b, aby uruchomić pojedyncze porównanie.",
     )
     parser.add_argument(
         "--source-b",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/article_aljazeera.json",
-        help="Ścieżka do źródła B.",
+        default=None,
+        help="Ścieżka do źródła B. Podaj razem z --source-a, aby uruchomić pojedyncze porównanie.",
     )
     parser.add_argument(
         "--output",
-        default="corpus/russian_invasion_on_ukraine_24_02_2022/automated.json",
-        help="Ścieżka pliku wynikowego JSON.",
+        default=None,
+        help="Ścieżka pliku wynikowego JSON dla trybu pojedynczej pary.",
     )
     parser.add_argument(
         "--model",
@@ -337,15 +430,37 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     try:
-        compare_articles(
-            instructions_path=_resolve_path(args.instructions, must_exist=True),
-            source_a_path=_resolve_path(args.source_a, must_exist=True),
-            source_b_path=_resolve_path(args.source_b, must_exist=True),
-            output_path=_resolve_path(args.output, must_exist=False),
-            model_name=args.model,
-        )
+        instructions_path = _resolve_path(args.instructions, must_exist=True)
+
+        if bool(args.source_a) != bool(args.source_b):
+            raise ValueError("Podaj jednocześnie --source-a i --source-b albo pomiń oba parametry.")
+
+        if args.source_a and args.source_b:
+            source_a_path = _resolve_path(args.source_a, must_exist=True)
+            source_b_path = _resolve_path(args.source_b, must_exist=True)
+            output_path = (
+                _resolve_path(args.output, must_exist=False)
+                if args.output
+                else source_a_path.parent / "automated.json"
+            )
+
+            compare_articles(
+                instructions_path=instructions_path,
+                source_a_path=source_a_path,
+                source_b_path=source_b_path,
+                output_path=output_path,
+                model_name=args.model,
+            )
+            print(f"Zapisano wynik do: {output_path}")
+        else:
+            corpus_dir = _resolve_path(args.corpus_dir, must_exist=True)
+            processed_count = compare_corpus(
+                instructions_path=instructions_path,
+                corpus_dir=corpus_dir,
+                model_name=args.model,
+            )
+            if processed_count == 0:
+                print("Nie znaleziono żadnych par plików article_*.json do porównania.")
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(1)
-
-    print(f"Zapisano wynik do: {args.output}")

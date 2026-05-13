@@ -1,12 +1,6 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 
-import bbcArticleRaw from '../../corpus/russian_invasion_on_ukraine_24_02_2022/bbc.json?raw'
-import aljaazeraArticleRaw from '../../corpus/russian_invasion_on_ukraine_24_02_2022/aljaazera.json?raw'
-import handmadeResult from '../../corpus/russian_invasion_on_ukraine_24_02_2022/handmade.json'
-import automatedWithoutLlmResult from '../../corpus/russian_invasion_on_ukraine_24_02_2022/automated_without_llm.json'
-import automatedResult from '../../corpus/russian_invasion_on_ukraine_24_02_2022/automated.json'
-
 function parseRelaxedArticleJson(raw) {
   const result = {}
 
@@ -35,87 +29,82 @@ function parseRelaxedArticleJson(raw) {
   return result
 }
 
-const bbcArticle = parseRelaxedArticleJson(bbcArticleRaw)
-const aljaazeraArticle = parseRelaxedArticleJson(aljaazeraArticleRaw)
+function parseResultJson(raw) {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
 
-const russianArticles = [
-  {
-    id: 'russian-bbc',
-    folder: 'articles',
-    name: 'bbc.json',
-    kind: 'article',
-    data: bbcArticle,
-  },
-  {
-    id: 'russian-aljaazera',
-    folder: 'articles',
-    name: 'aljaazera.json',
-    kind: 'article',
-    data: aljaazeraArticle,
-  },
-]
+function normalizeId(value) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
 
-const russianResults = [
-  {
-    id: 'russian-handmade',
-    folder: 'results',
-    name: 'handmade.json',
-    kind: 'result',
-    data: handmadeResult,
-  },
-  {
-    id: 'russian-automated_without_llm',
-    folder: 'results',
-    name: 'automated_without_llm.json',
-    kind: 'result',
-    data: automatedWithoutLlmResult,
-  },
-  {
-    id: 'russian-automated',
-    folder: 'results',
-    name: 'automated.json',
-    kind: 'result',
-    data: automatedResult,
-  },
-]
+function buildInitialCollections() {
+  const corpusFiles = import.meta.glob('../../corpus/*/*.json', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  })
 
-const collections = [
-  {
-    id: 'covid19_articles',
-    label: 'covid19_articles',
-    articles: [],
-    results: [],
-  },
-  {
-    id: 'russian_invasion_on_ukraine_24_02_2022',
-    label: 'russian_invasion_on_ukraine',
-    articles: russianArticles,
-    results: russianResults,
-  },
-  {
-    id: 'charlie_kirk_articles',
-    label: 'charlie_kirk_articles',
-    articles: [],
-    results: [],
-  },
-]
+  const folders = new Map()
+
+  for (const [path, rawValue] of Object.entries(corpusFiles)) {
+    const match = path.match(/\/corpus\/([^/]+)\/([^/]+\.json)$/)
+    if (!match) {
+      continue
+    }
+
+    const [, folderName, fileName] = match
+    const raw = typeof rawValue === 'string' ? rawValue : ''
+
+    if (!folders.has(folderName)) {
+      folders.set(folderName, {
+        id: folderName,
+        label: folderName,
+        articles: [],
+        results: [],
+      })
+    }
+
+    const collection = folders.get(folderName)
+    const fileEntry = {
+      id: normalizeId(`${folderName}-${fileName}`),
+      folder: fileName.startsWith('article_') ? 'articles' : 'results',
+      name: fileName,
+      kind: fileName.startsWith('article_') ? 'article' : 'result',
+      data: fileName.startsWith('article_') ? parseRelaxedArticleJson(raw) : parseResultJson(raw),
+    }
+
+    if (fileEntry.kind === 'article') {
+      collection.articles.push(fileEntry)
+    } else {
+      collection.results.push(fileEntry)
+    }
+  }
+
+  const collections = Array.from(folders.values())
+    .map((collection) => ({
+      ...collection,
+      articles: collection.articles.sort((a, b) => a.name.localeCompare(b.name)),
+      results: collection.results.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  return collections
+}
+
+const INITIAL_COLLECTIONS = buildInitialCollections()
+
+const DEFAULT_ANALYSIS_PARAMS = {
+  threshold: 0.58,
+  conflictThreshold: 0.35,
+}
 
 function getFirstFileId(collection, section) {
   const files = collection?.[section] ?? []
   return files[0]?.id ?? null
-}
-
-function formatDate(value) {
-  if (!value) {
-    return 'brak'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return date.toLocaleString('pl-PL')
 }
 
 function JsonText({ value, depth = 0 }) {
@@ -165,17 +154,23 @@ function JsonText({ value, depth = 0 }) {
 }
 
 function App() {
-  const [activeCollectionId, setActiveCollectionId] = useState(
-    'russian_invasion_on_ukraine_24_02_2022'
-  )
+  const [collectionsState, setCollectionsState] = useState(INITIAL_COLLECTIONS)
+  const [activeCollectionId, setActiveCollectionId] = useState(INITIAL_COLLECTIONS[0]?.id ?? null)
   const [activeSection, setActiveSection] = useState('articles')
-  const [activeFileId, setActiveFileId] = useState('russian-bbc')
+  const [activeFileId, setActiveFileId] = useState(
+    getFirstFileId(INITIAL_COLLECTIONS[0], 'articles')
+  )
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareFileId, setCompareFileId] = useState(null)
+  const [analysisParams, setAnalysisParams] = useState(DEFAULT_ANALYSIS_PARAMS)
+  const [analysisError, setAnalysisError] = useState('')
+  const [analysisLoading, setAnalysisLoading] = useState(false)
 
   const activeCollection = useMemo(() => {
-    return collections.find((item) => item.id === activeCollectionId) ?? collections[0]
-  }, [activeCollectionId])
+    return (
+      collectionsState.find((item) => item.id === activeCollectionId) ?? collectionsState[0]
+    )
+  }, [activeCollectionId, collectionsState])
 
   const visibleFiles = useMemo(() => {
     return activeCollection?.[activeSection] ?? []
@@ -197,14 +192,31 @@ function App() {
     return compareCandidates.find((file) => file.id === compareFileId) ?? compareCandidates[0] ?? null
   }, [compareCandidates, compareFileId])
 
+  const analysisArticles = useMemo(() => {
+    const articles = activeCollection?.articles ?? []
+    if (articles.length < 2) {
+      return null
+    }
+
+    return {
+      sourceA: articles[0],
+      sourceB: articles[1],
+    }
+  }, [activeCollection])
+
+  const isAutomatedWithoutLlmSelected =
+    activeSection === 'results' && selectedFile?.name === 'automated_without_llm.json'
+
   const selectCollection = (collectionId) => {
-    const nextCollection = collections.find((item) => item.id === collectionId) ?? collections[0]
+    const nextCollection =
+      collectionsState.find((item) => item.id === collectionId) ?? collectionsState[0]
     const nextActiveFileId = getFirstFileId(nextCollection, activeSection)
 
     setActiveCollectionId(nextCollection.id)
     setActiveFileId(nextActiveFileId)
     setCompareEnabled(false)
     setCompareFileId(null)
+    setAnalysisError('')
   }
 
   const selectSection = (sectionId) => {
@@ -214,12 +226,74 @@ function App() {
     setActiveFileId(nextActiveFileId)
     setCompareEnabled(false)
     setCompareFileId(null)
+    setAnalysisError('')
   }
 
   const selectFile = (fileId) => {
     setActiveFileId(fileId)
     setCompareEnabled(false)
     setCompareFileId(null)
+  }
+
+  const updateAnalysisParam = (paramName, rawValue) => {
+    const parsed = Number.parseFloat(rawValue)
+    setAnalysisParams((prev) => ({
+      ...prev,
+      [paramName]: Number.isFinite(parsed) ? parsed : prev[paramName],
+    }))
+  }
+
+  const runAnalysis = async () => {
+    if (!analysisArticles || !isAutomatedWithoutLlmSelected) {
+      return
+    }
+
+    setAnalysisLoading(true)
+    setAnalysisError('')
+
+    try {
+      const response = await fetch('/api/analyze-without-llm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceA: analysisArticles.sourceA?.data?.text ?? '',
+          sourceB: analysisArticles.sourceB?.data?.text ?? '',
+          threshold: analysisParams.threshold,
+          conflictThreshold: analysisParams.conflictThreshold,
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Nie udało się wykonać analizy.')
+      }
+
+      const savedResult = payload?.savedResult ?? payload?.result
+      if (!savedResult || typeof savedResult !== 'object') {
+        throw new Error('Nieprawidłowy format odpowiedzi analizy.')
+      }
+
+      setCollectionsState((prevCollections) =>
+        prevCollections.map((collection) => {
+          if (collection.id !== activeCollectionId) {
+            return collection
+          }
+
+          return {
+            ...collection,
+            results: collection.results.map((file) =>
+              file.id === selectedFile?.id ? { ...file, data: savedResult } : file
+            ),
+          }
+        })
+      )
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Nieznany błąd analizy.')
+    } finally {
+      setAnalysisLoading(false)
+    }
   }
 
   const toggleCompare = () => {
@@ -258,7 +332,7 @@ function App() {
           </button>
 
           <h3>Collections</h3>
-          {collections.map((collection) => (
+          {collectionsState.map((collection) => (
             <button
               key={collection.id}
               type="button"
@@ -307,6 +381,16 @@ function App() {
           <div className="content-title-row">
             <h2>{selectedFile?.name ?? 'Brak pliku'}</h2>
             <div className="title-actions">
+              {isAutomatedWithoutLlmSelected && analysisArticles ? (
+                <button
+                  type="button"
+                  className="compare-toggle"
+                  onClick={runAnalysis}
+                  disabled={analysisLoading}
+                >
+                  {analysisLoading ? 'analiza...' : 'analizuj'}
+                </button>
+              ) : null}
               {activeSection === 'results' && selectedFile ? (
                 <button
                   type="button"
@@ -320,6 +404,44 @@ function App() {
               <span className="badge">{activeSection}</span>
             </div>
           </div>
+
+          {isAutomatedWithoutLlmSelected ? (
+            <section className="analysis-params">
+              <h3>Parametry analizy bez LLM</h3>
+              <div className="analysis-params-grid">
+                <label htmlFor="threshold-input">
+                  Threshold silnych dopasowan (0-1)
+                  <input
+                    id="threshold-input"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={analysisParams.threshold}
+                    onChange={(event) => updateAnalysisParam('threshold', event.target.value)}
+                  />
+                </label>
+                <label htmlFor="conflict-threshold-input">
+                  Threshold konfliktow (0-1)
+                  <input
+                    id="conflict-threshold-input"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={analysisParams.conflictThreshold}
+                    onChange={(event) =>
+                      updateAnalysisParam('conflictThreshold', event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+            </section>
+          ) : null}
+
+          {isAutomatedWithoutLlmSelected && analysisError ? (
+            <p className="analysis-error">Blad analizy: {analysisError}</p>
+          ) : null}
 
           {!selectedFile ? (
             <section className="result-body">
@@ -335,10 +457,6 @@ function App() {
                 <p>
                   <span>Zrodlo</span>
                   {selectedFile.data.source}
-                </p>
-                <p>
-                  <span>Data publikacji</span>
-                  {formatDate(selectedFile.data.publishedAt)}
                 </p>
                 <p>
                   <span>URL</span>

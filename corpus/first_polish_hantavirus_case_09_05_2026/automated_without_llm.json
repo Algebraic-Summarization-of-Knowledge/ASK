@@ -1,0 +1,63 @@
+{
+  "Informacje powielające się": [],
+  "Różnice/doprecyzowanie informacji/pojawiające się w A, niepojawiające się w B": {
+    "Różnica (BBC \\ Al Jazeera)": [
+      "Kategoria: Poland's Chief Sanitary Inspector, Paweł Grzesiowski, has confirmed that the first person in Poland has been placed under epidemiological surveillance due to a potential risk of hantavirus infection.",
+      "Kategoria: Speaking to Polish Radio, Grzesiowski explained that the individual is currently required to self-monitor their health and remain in regular contact with sanitary authorities.",
+      "Kategoria: If symptoms such as headaches or fever appear, the person must immediately notify health services and report any changes in their condition throughout the monitoring period.",
+      "Kategoria: According to the Chief Sanitary Inspector, the individual currently shows no symptoms of illness.",
+      "Kategoria: “The person is observing their own health condition and remains in contact with us.",
+      "Kategoria: This is the standard procedure.",
+      "Kategoria: If any health problems arise, the person reports to a specialist in the country where they are staying, and we are informed about it,” Grzesiowski said.",
+      "Kategoria: Health officials stressed that hantavirus does not pose the same epidemic threat as influenza or coronavirus infections.",
+      "Kategoria: The person under surveillance may have had contact with passengers from the expedition cruise ship Hondius, where an outbreak of the Andes virus was detected.",
+      "Kategoria: So far, eight infections with the Andes virus have been confirmed, and three people have died.",
+      "Kategoria: The victims include a Dutch couple and a German citizen."
+    ],
+    "Różnica (AlJaazera \\ BBC)": [
+      "Kategoria: A person from Poland who may have come into contact with the hantavirus has been told to closely watch their health and report to medical authorities in case of problems, in the country’s first such case.",
+      "Kategoria: The Polish citizen was waiting for the same flight as cruise ship passengers showing symptoms of the virus, private broadcaster TVN reported.",
+      "Kategoria: The head of Poland’s Chief Sanitary Inspectorate, Paweł Grzesiowski, told the media outlet that the Pole is under observation outside of the country.",
+      "Kategoria: The person is not in quarantine and is not currently showing symptoms of the virus, TVN added.",
+      "Kategoria: Three people have died in an outbreak of hantavirus aboard the Hondius, a luxury cruise ship sailing from Argentina, with several other confirmed or suspected cases reported, including one in Europe.",
+      "Kategoria: The World Health Organization has said the wider threat to public health remains low.",
+      "Kategoria: What is hantavirus?",
+      "Kategoria: Hantaviruses are rodent-borne viruses that can infect people and cause illness.",
+      "Kategoria: The WHO estimates there are 10,000 to 100,000 human cases globally each year, with severity varying by strain.",
+      "Kategoria: The strain identified on the ship is the Andes hantavirus, which typically circulates in Argentina and Chile.",
+      "Kategoria: The Hondius set off from Argentina on April 1.",
+      "Kategoria: What are the symptoms of infection?",
+      "Kategoria: Hantaviruses common in different parts of the world cause different symptoms or diseases—and some cause none at all.",
+      "Kategoria: Symptoms typically begin one to eight weeks after exposure and may include fever, muscle aches and gastrointestinal issues, according to the WHO.",
+      "Kategoria: But a typical incubation period would be closer to around two to three weeks, said Andrew Pollard, a professor at Oxford University's Pandemic Sciences Institute.",
+      "Kategoria: The Andes hantavirus and other hantaviruses in the Americas can cause hantavirus cardiopulmonary syndrome, which progresses quickly and leads to fluid buildup in the lungs along with heart complications.",
+      "Kategoria: Fatality rates from hantavirus cardiopulmonary syndrome are up to 50%, the WHO says, compared to 1-15% from the infections common in Asia and Europe."
+    ]
+  },
+  "Konflikty/sprzeczne fakty?": [
+    {
+      "temat": "Currently / Symptoms",
+      "BBC": "According to the Chief Sanitary Inspector, the individual currently shows no symptoms of illness.",
+      "AL JAZEERA": "The person is not in quarantine and is not currently showing symptoms of the virus, TVN added.",
+      "explanation": "Różna modalność/pewność narracji (doniesienia vs stwierdzenie faktu)."
+    },
+    {
+      "temat": "Ship / Cruise / Virus / Passengers",
+      "BBC": "The person under surveillance may have had contact with passengers from the expedition cruise ship Hondius, where an outbreak of the Andes virus was detected.",
+      "AL JAZEERA": "The Polish citizen was waiting for the same flight as cruise ship passengers showing symptoms of the virus, private broadcaster TVN reported.",
+      "explanation": "Różna modalność/pewność narracji (doniesienia vs stwierdzenie faktu)."
+    },
+    {
+      "temat": "Person",
+      "BBC": "“The person is observing their own health condition and remains in contact with us.",
+      "AL JAZEERA": "The person is not in quarantine and is not currently showing symptoms of the virus, TVN added.",
+      "explanation": "Niespójność negacji (jedno źródło zaprzecza, drugie nie)."
+    },
+    {
+      "temat": "Hantavirus",
+      "BBC": "Health officials stressed that hantavirus does not pose the same epidemic threat as influenza or coronavirus infections.",
+      "AL JAZEERA": "The strain identified on the ship is the Andes hantavirus, which typically circulates in Argentina and Chile.",
+      "explanation": "Niespójność negacji (jedno źródło zaprzecza, drugie nie)."
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from automatiom_without_llm import analyze_texts
+from automatiom_without_llm import analyze_texts, compare_corpus_without_llm, resolve_path
 
 
 HOST = "127.0.0.1"
@@ -18,6 +18,14 @@ OUTPUT_FILE = (
 
 def _save_result_to_file(result: Dict[str, Any]) -> None:
     OUTPUT_FILE.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _save_result_to_path(result: Dict[str, Any], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -43,34 +51,62 @@ class AnalyzeHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:
-        if self.path != "/api/analyze-without-llm":
-            self._write_json({"error": "Nieznany endpoint."}, status_code=404)
-            return
-
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(content_length)
             payload = json.loads(raw_body.decode("utf-8"))
 
-            result = analyze_texts(
-                text_a=payload.get("sourceA", ""),
-                text_b=payload.get("sourceB", ""),
-                strong_match_threshold=float(payload.get("threshold", 0.58)),
-                conflict_min_similarity=float(payload.get("conflictThreshold", 0.35)),
-            )
-            _save_result_to_file(result)
+            if self.path == "/api/analyze-without-llm":
+                result = analyze_texts(
+                    text_a=payload.get("sourceA", ""),
+                    text_b=payload.get("sourceB", ""),
+                    strong_match_threshold=float(payload.get("threshold", 0.58)),
+                    conflict_min_similarity=float(payload.get("conflictThreshold", 0.35)),
+                )
 
-            self._write_json(
-                {
-                    "result": result,
-                    "savedResult": result,
-                    "savedPath": str(OUTPUT_FILE),
-                    "parameters": {
-                        "threshold": float(payload.get("threshold", 0.58)),
-                        "conflictThreshold": float(payload.get("conflictThreshold", 0.35)),
-                    },
-                }
-            )
+                output_path_raw = payload.get("outputPath")
+                saved_path = OUTPUT_FILE
+                if output_path_raw:
+                    saved_path = resolve_path(str(output_path_raw), must_exist=False)
+                    _save_result_to_path(result, saved_path)
+                else:
+                    _save_result_to_file(result)
+
+                self._write_json(
+                    {
+                        "result": result,
+                        "savedResult": result,
+                        "savedPath": str(saved_path),
+                        "parameters": {
+                            "threshold": float(payload.get("threshold", 0.58)),
+                            "conflictThreshold": float(payload.get("conflictThreshold", 0.35)),
+                        },
+                    }
+                )
+                return
+
+            if self.path == "/api/analyze-without-llm-corpus":
+                corpus_dir = resolve_path(str(payload.get("corpusDir", "corpus")), must_exist=True)
+                saved_paths = compare_corpus_without_llm(
+                    corpus_dir=corpus_dir,
+                    strong_match_threshold=float(payload.get("threshold", 0.58)),
+                    conflict_min_similarity=float(payload.get("conflictThreshold", 0.35)),
+                )
+
+                self._write_json(
+                    {
+                        "processedCount": len(saved_paths),
+                        "savedPaths": [str(path) for path in saved_paths],
+                        "parameters": {
+                            "threshold": float(payload.get("threshold", 0.58)),
+                            "conflictThreshold": float(payload.get("conflictThreshold", 0.35)),
+                        },
+                    }
+                )
+                return
+
+            self._write_json({"error": "Nieznany endpoint."}, status_code=404)
+            return
         except Exception as exc:
             self._write_json({"error": str(exc)}, status_code=400)
 

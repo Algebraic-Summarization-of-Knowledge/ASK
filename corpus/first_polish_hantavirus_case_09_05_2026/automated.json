@@ -1,0 +1,53 @@
+{
+  "Informacje powielające się": [
+    {
+      "BBC": "Poland's Chief Sanitary Inspector, Paweł Grzesiowski, has confirmed that the first person in Poland has been placed under epidemiological surveillance due to a potential risk of hantavirus infection.",
+      "AlJazeera": "A person from Poland who may have come into contact with the hantavirus has been told to closely watch their health and report to medical authorities in case of problems, in the country’s first such case."
+    },
+    {
+      "BBC": "Grzesiowski explained that the individual is currently required to self-monitor their health and remain in regular contact with sanitary authorities.",
+      "AlJazeera": "A person from Poland who may have come into contact with the hantavirus has been told to closely watch their health and report to medical authorities in case of problems..."
+    },
+    {
+      "BBC": "According to the Chief Sanitary Inspector, the individual currently shows no symptoms of illness.",
+      "AlJazeera": "The person is not in quarantine and is not currently showing symptoms of the virus, TVN added."
+    },
+    {
+      "BBC": "The person under surveillance may have had contact with passengers from the expedition cruise ship Hondius, where an outbreak of the Andes virus was detected.",
+      "AlJazeera": "The Polish citizen was waiting for the same flight as cruise ship passengers showing symptoms of the virus, private broadcaster TVN reported."
+    },
+    {
+      "BBC": "So far, eight infections with the Andes virus have been confirmed, and three people have died.",
+      "AlJazeera": "Three people have died in an outbreak of hantavirus aboard the Hondius, a luxury cruise ship sailing from Argentina, with several other confirmed or suspected cases reported, including one in Europe."
+    },
+    {
+      "BBC": "Health officials stressed that hantavirus does not pose the same epidemic threat as influenza or coronavirus infections.",
+      "AlJazeera": "The World Health Organization has said the wider threat to public health remains low."
+    }
+  ],
+  "Różnice/doprecyzowanie informacji/pojawiające się w A, niepojawiające się w B": {
+    "Różnica (BBC \\ Al Jazeera)": [
+      "Szczegółowe instrukcje dla osoby objętej nadzorem dotyczące zgłaszania objawów, takich jak bóle głowy czy gorączka, służbom zdrowia: 'If symptoms such as headaches or fever appear, the person must immediately notify health services and report any changes in their condition throughout the monitoring period.'",
+      "Bezpośredni cytat z Pawła Grzesiowskiego, Głównego Inspektora Sanitarnego, wyjaśniający standardową procedurę nadzoru: “The person is observing their own health condition and remains in contact with us. This is the standard procedure. If any health problems arise, the person reports to a specialist in the country where they are staying, and we are informed about it,” Grzesiowski said.'",
+      "Precyzyjna liczba potwierdzonych infekcji wirusem Andes: 'So far, eight infections with the Andes virus have been confirmed...'",
+      "Narodowości ofiar śmiertelnych: 'The victims include a Dutch couple and a German citizen.'",
+      "Wskazanie 'Polskiego Radia' jako źródła rozmowy z Grzesiowskim: 'Speaking to Polish Radio, Grzesiowski explained that...'"
+    ],
+    "Różnica (AlJaazera \\ BBC)": [
+      "Wskazanie prywatnego nadawcy TVN jako źródła informacji o polskim obywatelu: 'private broadcaster TVN reported.'",
+      "Informacja, że osoba objęta nadzorem przebywa poza krajem: 'The head of Poland’s Chief Sanitary Inspectorate, Paweł Grzesiowski, told the media outlet that the Pole is under observation outside of the country.'",
+      "Wyjaśnienie, że osoba nie jest w kwarantannie: 'The person is not in quarantine and is not currently showing symptoms of the virus, TVN added.'",
+      "Opis statku Hondius jako 'luksusowego statku wycieczkowego pływającego z Argentyny': 'a luxury cruise ship sailing from Argentina'.",
+      "Wzmianka o innych potwierdzonych lub podejrzanych przypadkach, w tym jednym w Europie: 'several other confirmed or suspected cases reported, including one in Europe.'",
+      "Podstawowa definicja hantawirusa: 'Hantaviruses are rodent-borne viruses that can infect people and cause illness.'",
+      "Szacunki WHO dotyczące globalnej liczby przypadków hantawirusa rocznie: 'The WHO estimates there are 10,000 to 100,000 human cases globally each year, with severity varying by strain.'",
+      "Identyfikacja szczepu wirusa na statku jako Andes hantawirus i jego typowe obszary występowania: 'The strain identified on the ship is the Andes hantavirus, which typically circulates in Argentina and Chile.'",
+      "Data i miejsce wypłynięcia statku Hondius: 'The Hondius set off from Argentina on April 1.'",
+      "Ogólne objawy infekcji hantawirusem: 'Symptoms typically begin one to eight weeks after exposure and may include fever, muscle aches and gastrointestinal issues, according to the WHO.'",
+      "Cytat od eksperta (Andrew Pollard) na temat typowego okresu inkubacji: 'But a typical incubation period would be closer to around two to three weeks, said Andrew Pollard, a professor at Oxford University's Pandemic Sciences Institute.'",
+      "Szczegóły dotyczące zespołu sercowo-płucnego wywołanego hantawirusem (Hantavirus Cardiopulmonary Syndrome - HCPS) i jego konsekwencji: 'The Andes hantavirus and other hantaviruses in the Americas can cause hantavirus cardiopulmonary syndrome, which progresses quickly and leads to fluid buildup in the lungs along with heart complications.'",
+      "Porównanie wskaźników śmiertelności HCPS z innymi infekcjami hantawirusem: 'Fatality rates from hantavirus cardiopulmonary syndrome are up to 50%, the WHO says, compared to 1-15% from the infections common in Asia and Europe.'"
+    ]
+  },
+  "Konflikty/sprzeczne fakty?": []
+}
