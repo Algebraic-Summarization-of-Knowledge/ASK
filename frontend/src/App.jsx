@@ -205,6 +205,9 @@ function getCategoryMarkers(resultData, sourceKeys) {
       continue
     }
 
+    const explanation = typeof item.explanation === 'string' ? item.explanation : ''
+    const topic = typeof item.temat === 'string' ? item.temat : ''
+
     const trimmedItem = Object.fromEntries(
       Object.entries(item).filter(
         ([key, value]) =>
@@ -218,12 +221,12 @@ function getCategoryMarkers(resultData, sourceKeys) {
     const cleanedB = stripCategoryPrefix(bValue)
     const key = cleanedA && cleanedB ? `conflict-${conflictA.length}` : ''
     if (cleanedA) {
-      conflictA.push({ text: cleanedA, key })
+      conflictA.push({ text: cleanedA, key, explanation, topic })
     }
     if (cleanedB) {
-      conflictB.push({ text: cleanedB, key })
+      conflictB.push({ text: cleanedB, key, explanation, topic })
     } else if (cleanedA) {
-      conflictB.push({ text: cleanedA, key })
+      conflictB.push({ text: cleanedA, key, explanation, topic })
     }
   }
 
@@ -260,6 +263,8 @@ function buildTaggedSentences(text, markers) {
         text: normalizeText(item.text),
         key: item.key,
         tokens: tokenizeText(item.text),
+        explanation: item.explanation ?? '',
+        topic: item.topic ?? '',
       }))
       .filter((item) => item.text)
 
@@ -333,7 +338,13 @@ function buildTaggedSentences(text, markers) {
       })
 
       if (bestIndex >= 0 && bestScore >= minScore) {
-        assignments.push({ index: bestIndex, tag, key: marker.key })
+        assignments.push({
+          index: bestIndex,
+          tag,
+          key: marker.key,
+          explanation: marker.explanation,
+          topic: marker.topic,
+        })
       }
     })
 
@@ -366,6 +377,8 @@ function buildTaggedSentences(text, markers) {
       sentence: sentenceInfo.sentence,
       tag: assignment?.tag ?? '',
       key: assignment?.key ?? '',
+      explanation: assignment?.explanation ?? '',
+      topic: assignment?.topic ?? '',
     }
   })
 }
@@ -489,12 +502,11 @@ function App() {
   const [activeFileId, setActiveFileId] = useState(
     getFirstFileId(INITIAL_COLLECTIONS[0], 'articles')
   )
-  const [compareEnabled, setCompareEnabled] = useState(false)
-  const [compareFileId, setCompareFileId] = useState(null)
   const [analysisParams, setAnalysisParams] = useState(DEFAULT_ANALYSIS_PARAMS)
   const [analysisError, setAnalysisError] = useState('')
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [activeHighlightKey, setActiveHighlightKey] = useState('')
+  const [activeConflictInfo, setActiveConflictInfo] = useState(null)
 
   const activeCollection = useMemo(() => {
     return (
@@ -509,18 +521,6 @@ function App() {
   const selectedFile = useMemo(() => {
     return visibleFiles.find((file) => file.id === activeFileId) ?? visibleFiles[0] ?? null
   }, [activeFileId, visibleFiles])
-
-  const compareCandidates = useMemo(() => {
-    if (activeSection !== 'results' || !selectedFile) {
-      return []
-    }
-
-    return visibleFiles.filter((file) => file.id !== selectedFile.id)
-  }, [activeSection, selectedFile, visibleFiles])
-
-  const comparedFile = useMemo(() => {
-    return compareCandidates.find((file) => file.id === compareFileId) ?? compareCandidates[0] ?? null
-  }, [compareCandidates, compareFileId])
 
   const analysisArticles = useMemo(() => {
     const articles = activeCollection?.articles ?? []
@@ -559,10 +559,9 @@ function App() {
 
     setActiveCollectionId(nextCollection.id)
     setActiveFileId(nextActiveFileId)
-    setCompareEnabled(false)
-    setCompareFileId(null)
     setAnalysisError('')
     setActiveHighlightKey('')
+    setActiveConflictInfo(null)
   }
 
   const selectSection = (sectionId) => {
@@ -570,17 +569,15 @@ function App() {
 
     setActiveSection(sectionId)
     setActiveFileId(nextActiveFileId)
-    setCompareEnabled(false)
-    setCompareFileId(null)
     setAnalysisError('')
     setActiveHighlightKey('')
+    setActiveConflictInfo(null)
   }
 
   const selectFile = (fileId) => {
     setActiveFileId(fileId)
-    setCompareEnabled(false)
-    setCompareFileId(null)
     setActiveHighlightKey('')
+    setActiveConflictInfo(null)
   }
 
   const updateAnalysisParam = (paramName, rawValue) => {
@@ -644,23 +641,29 @@ function App() {
     }
   }
 
-  const toggleCompare = () => {
-    if (compareEnabled) {
-      setCompareEnabled(false)
-      return
-    }
-
-    const defaultCompareId = compareCandidates[0]?.id ?? null
-    setCompareEnabled(true)
-    setCompareFileId(defaultCompareId)
-  }
-
   const toggleHighlight = (key) => {
     if (!key) {
       return
     }
 
     setActiveHighlightKey((prev) => (prev === key ? '' : key))
+  }
+
+  const toggleConflictInfo = (item) => {
+    if (!item?.explanation) {
+      return
+    }
+
+    setActiveConflictInfo((prev) => {
+      if (prev && prev.explanation === item.explanation) {
+        return null
+      }
+
+      return {
+        explanation: item.explanation,
+        topic: item.topic ?? '',
+      }
+    })
   }
 
   const noFilesMessage =
@@ -704,9 +707,6 @@ function App() {
       <header className="app-header">
         <p className="eyebrow">ASK</p>
         <h1>Algebraic Summarization of Knowledge</h1>
-        <p className="header-subtitle">
-          Porownuj zrodla, sprawdzaj zgodnosc i szybko wychwytuj konflikty.
-        </p>
       </header>
 
       <main className="workspace">
@@ -771,16 +771,6 @@ function App() {
                   {analysisLoading ? 'analiza...' : 'analizuj'}
                 </button>
               ) : null}
-              {activeSection === 'results' && selectedFile ? (
-                <button
-                  type="button"
-                  className={`compare-toggle ${compareEnabled ? 'active' : ''}`}
-                  onClick={toggleCompare}
-                  disabled={!compareCandidates.length}
-                >
-                  compare
-                </button>
-              ) : null}
               <span className="badge">{activeSection}</span>
             </div>
           </div>
@@ -837,20 +827,24 @@ function App() {
           ) : selectedFile.kind === 'article' ? (
             <article>
               <div className="meta-grid">
-                <p>
+                <div className="meta-item meta-title">
                   <span>Tytul</span>
-                  {selectedFile.data.title}
-                </p>
-                <p>
+                  <h3>{selectedFile.data.title || 'Brak tytulu'}</h3>
+                </div>
+                <div className="meta-item">
                   <span>Zrodlo</span>
-                  {selectedFile.data.source}
-                </p>
-                <p>
+                  <p>{selectedFile.data.source || 'Brak zrodla'}</p>
+                </div>
+                <div className="meta-item">
                   <span>URL</span>
-                  <a href={selectedFile.data.url} target="_blank" rel="noreferrer">
-                    {selectedFile.data.url}
-                  </a>
-                </p>
+                  {selectedFile.data.url ? (
+                    <a href={selectedFile.data.url} target="_blank" rel="noreferrer">
+                      {selectedFile.data.url}
+                    </a>
+                  ) : (
+                    <p>Brak URL</p>
+                  )}
+                </div>
               </div>
 
               <div className="article-body">
@@ -861,23 +855,6 @@ function App() {
             </article>
           ) : (
             <>
-              {compareEnabled && comparedFile ? (
-                <div className="compare-controls">
-                  <label htmlFor="compare-select">Porownaj z:</label>
-                  <select
-                    id="compare-select"
-                    value={comparedFile.id}
-                    onChange={(event) => setCompareFileId(event.target.value)}
-                  >
-                    {compareCandidates.map((file) => (
-                      <option key={file.id} value={file.id}>
-                        {file.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
               {showCategoryResults ? (
                 <section className="category-results">
                   <div className="legend">
@@ -886,6 +863,26 @@ function App() {
                     <span className="legend-item conflict">Konflikt</span>
                   </div>
 
+                  {activeConflictInfo ? (
+                    <div className="conflict-popup" role="status">
+                      <div className="conflict-popup-header">
+                        <p>Dlaczego to konflikt?</p>
+                        <button
+                          type="button"
+                          className="conflict-popup-close"
+                          onClick={() => setActiveConflictInfo(null)}
+                          aria-label="Zamknij wyjasnienie konfliktu"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      {activeConflictInfo.topic ? (
+                        <p className="conflict-popup-topic">{activeConflictInfo.topic}</p>
+                      ) : null}
+                      <p className="conflict-popup-text">{activeConflictInfo.explanation}</p>
+                    </div>
+                  ) : null}
+
                   <div className="side-by-side">
                     <article className="source-panel">
                       <header>
@@ -893,29 +890,44 @@ function App() {
                         <p>{analysisArticles.sourceA?.data?.title}</p>
                       </header>
                       <p className="article-text">
-                        {sourceASentences.map((item, index) => (
-                          <span
-                            key={`a-${index}`}
-                            className={`sentence ${item.tag} ${
-                              item.key && item.key === activeHighlightKey ? 'active' : ''
-                            } ${item.key ? 'pairable' : ''}`}
-                            onClick={item.key ? () => toggleHighlight(item.key) : undefined}
-                            role={item.key ? 'button' : undefined}
-                            tabIndex={item.key ? 0 : undefined}
-                            onKeyDown={
-                              item.key
-                                ? (event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault()
-                                      toggleHighlight(item.key)
-                                    }
-                                  }
-                                : undefined
+                        {sourceASentences.map((item, index) => {
+                          const isInteractive = Boolean(item.key || item.explanation)
+
+                          const handleActivate = () => {
+                            if (item.key) {
+                              toggleHighlight(item.key)
                             }
-                          >
-                            {item.sentence}{' '}
-                          </span>
-                        ))}
+                            if (item.tag === 'conflict') {
+                              toggleConflictInfo(item)
+                            } else {
+                              setActiveConflictInfo(null)
+                            }
+                          }
+
+                          return (
+                            <span
+                              key={`a-${index}`}
+                              className={`sentence ${item.tag} ${
+                                item.key && item.key === activeHighlightKey ? 'active' : ''
+                              } ${isInteractive ? 'pairable' : ''}`}
+                              onClick={isInteractive ? handleActivate : undefined}
+                              role={isInteractive ? 'button' : undefined}
+                              tabIndex={isInteractive ? 0 : undefined}
+                              onKeyDown={
+                                isInteractive
+                                  ? (event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault()
+                                        handleActivate()
+                                      }
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {item.sentence}{' '}
+                            </span>
+                          )
+                        })}
                       </p>
                     </article>
 
@@ -925,44 +937,48 @@ function App() {
                         <p>{analysisArticles.sourceB?.data?.title}</p>
                       </header>
                       <p className="article-text">
-                        {sourceBSentences.map((item, index) => (
-                          <span
-                            key={`b-${index}`}
-                            className={`sentence ${item.tag} ${
-                              item.key && item.key === activeHighlightKey ? 'active' : ''
-                            } ${item.key ? 'pairable' : ''}`}
-                            onClick={item.key ? () => toggleHighlight(item.key) : undefined}
-                            role={item.key ? 'button' : undefined}
-                            tabIndex={item.key ? 0 : undefined}
-                            onKeyDown={
-                              item.key
-                                ? (event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault()
-                                      toggleHighlight(item.key)
-                                    }
-                                  }
-                                : undefined
+                        {sourceBSentences.map((item, index) => {
+                          const isInteractive = Boolean(item.key || item.explanation)
+
+                          const handleActivate = () => {
+                            if (item.key) {
+                              toggleHighlight(item.key)
                             }
-                          >
-                            {item.sentence}{' '}
-                          </span>
-                        ))}
+                            if (item.tag === 'conflict') {
+                              toggleConflictInfo(item)
+                            } else {
+                              setActiveConflictInfo(null)
+                            }
+                          }
+
+                          return (
+                            <span
+                              key={`b-${index}`}
+                              className={`sentence ${item.tag} ${
+                                item.key && item.key === activeHighlightKey ? 'active' : ''
+                              } ${isInteractive ? 'pairable' : ''}`}
+                              onClick={isInteractive ? handleActivate : undefined}
+                              role={isInteractive ? 'button' : undefined}
+                              tabIndex={isInteractive ? 0 : undefined}
+                              onKeyDown={
+                                isInteractive
+                                  ? (event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault()
+                                        handleActivate()
+                                      }
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {item.sentence}{' '}
+                            </span>
+                          )
+                        })}
                       </p>
                     </article>
                   </div>
                 </section>
-              ) : compareEnabled && comparedFile ? (
-                <div className="compare-grid">
-                  <section className="result-body">
-                    <h3>{selectedFile.name}</h3>
-                    <JsonText value={selectedFile.data} />
-                  </section>
-                  <section className="result-body">
-                    <h3>{comparedFile.name}</h3>
-                    <JsonText value={comparedFile.data} />
-                  </section>
-                </div>
               ) : (
                 <section className="result-body">
                   <JsonText value={selectedFile.data} />
