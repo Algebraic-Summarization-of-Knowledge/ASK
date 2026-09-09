@@ -1,34 +1,94 @@
 import json
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List
 
-from automatiom_without_llm import analyze_texts, compare_corpus_without_llm, resolve_path
+from assign_windows import assign_windows_to_source
+from context_windows import make_context_windows, sentences_from_json
+from embeddings import embed_windows
 
 
 HOST = "127.0.0.1"
 PORT = 8000
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_FILE = (
-    Path(__file__).resolve().parent.parent
+    PROJECT_ROOT
     / "corpus"
     / "russian_invasion_on_ukraine_24_02_2022"
     / "automated_without_llm.json"
 )
 
 
-def _save_result_to_file(result: Dict[str, Any]) -> None:
-    OUTPUT_FILE.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+def resolve_path(path_value: str, must_exist: bool) -> Path:
+    candidate = Path(path_value)
+    if candidate.is_absolute():
+        return candidate
+
+    candidates = [
+        Path.cwd() / candidate,
+        Path(__file__).resolve().parent / candidate,
+        PROJECT_ROOT / candidate,
+    ]
+
+    if must_exist:
+        for resolved in candidates:
+            if resolved.exists():
+                return resolved
+        return candidates[0]
+
+    for resolved in candidates:
+        if resolved.parent.exists():
+            return resolved
+    return candidates[0]
 
 
-def _save_result_to_path(result: Dict[str, Any], output_path: Path) -> None:
+def _windows_from_json(json_path: Path) -> List[dict]:
+    sentences = sentences_from_json(json_path)
+    windows = make_context_windows(sentences)
+    return embed_windows(windows)
+
+
+def _windows_from_text(text: str) -> List[dict]:
+    with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as file:
+        json.dump({"text": text}, file, ensure_ascii=False)
+        temp_path = Path(file.name)
+
+    try:
+        return _windows_from_json(temp_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def _save_result_to_path(result: Any, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def compare_corpus_without_llm(corpus_dir: Path) -> List[Path]:
+    saved_paths: List[Path] = []
+
+    for topic_dir in sorted(path for path in corpus_dir.iterdir() if path.is_dir()):
+        article_paths = sorted(
+            path
+            for path in topic_dir.iterdir()
+            if path.is_file() and path.name.startswith("article_") and path.suffix == ".json"
+        )
+        if len(article_paths) < 2:
+            continue
+
+        source_windows = _windows_from_json(article_paths[0])
+        other_articles = [_windows_from_json(path) for path in article_paths[1:]]
+        result = assign_windows_to_source(source_windows, other_articles)
+
+        output_path = topic_dir / "automated_without_llm.json"
+        _save_result_to_path(result, output_path)
+        saved_paths.append(output_path)
+
+    return saved_paths
 
 
 class AnalyzeHandler(BaseHTTPRequestHandler):
@@ -57,50 +117,34 @@ class AnalyzeHandler(BaseHTTPRequestHandler):
             payload = json.loads(raw_body.decode("utf-8"))
 
             if self.path == "/api/analyze-without-llm":
-                result = analyze_texts(
-                    text_a=payload.get("sourceA", ""),
-                    text_b=payload.get("sourceB", ""),
-                    strong_match_threshold=float(payload.get("threshold", 0.58)),
-                    conflict_min_similarity=float(payload.get("conflictThreshold", 0.35)),
-                )
+                source_windows = _windows_from_text(str(payload.get("sourceA", "")))
+                other_windows = _windows_from_text(str(payload.get("sourceB", "")))
+                result = assign_windows_to_source(source_windows, [other_windows])
 
                 output_path_raw = payload.get("outputPath")
                 saved_path = OUTPUT_FILE
                 if output_path_raw:
                     saved_path = resolve_path(str(output_path_raw), must_exist=False)
-                    _save_result_to_path(result, saved_path)
-                else:
-                    _save_result_to_file(result)
+
+                _save_result_to_path(result, saved_path)
 
                 self._write_json(
                     {
                         "result": result,
                         "savedResult": result,
                         "savedPath": str(saved_path),
-                        "parameters": {
-                            "threshold": float(payload.get("threshold", 0.58)),
-                            "conflictThreshold": float(payload.get("conflictThreshold", 0.35)),
-                        },
                     }
                 )
                 return
 
             if self.path == "/api/analyze-without-llm-corpus":
                 corpus_dir = resolve_path(str(payload.get("corpusDir", "corpus")), must_exist=True)
-                saved_paths = compare_corpus_without_llm(
-                    corpus_dir=corpus_dir,
-                    strong_match_threshold=float(payload.get("threshold", 0.58)),
-                    conflict_min_similarity=float(payload.get("conflictThreshold", 0.35)),
-                )
+                saved_paths = compare_corpus_without_llm(corpus_dir)
 
                 self._write_json(
                     {
                         "processedCount": len(saved_paths),
                         "savedPaths": [str(path) for path in saved_paths],
-                        "parameters": {
-                            "threshold": float(payload.get("threshold", 0.58)),
-                            "conflictThreshold": float(payload.get("conflictThreshold", 0.35)),
-                        },
                     }
                 )
                 return
