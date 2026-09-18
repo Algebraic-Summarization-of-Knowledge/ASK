@@ -2,18 +2,29 @@ import json
 import re
 from pathlib import Path
 
+DOT = "<DOT>"
+ABBREV = re.compile(
+    r"\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|Inc|Ltd|Co|St|Gen|Rep|Sen|Gov|Rev|No|etc|"
+    r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|"
+    r"U\.S|U\.K|E\.U|e\.g|i\.e|a\.m|p\.m)\.",
+    re.I,
+)
+INITIAL = re.compile(r"\b[A-Z]\.")
 
-def sentences_from_json(json_path: str | Path) -> list[str]:
-    """Wczytuje plik JSON z polem 'text' i dzieli tekst na zdania."""
-    raw = Path(json_path).read_text(encoding="utf-8")
-    article = json.loads(raw, strict=False)
 
-    text = re.sub(r"\s+", " ", str(article.get("text", "")).strip())
+def split_sentences(text: str) -> list[str]:
+    text = re.sub(r"\s+", " ", text).strip()
     if not text:
         return []
 
-    parts = re.split(r"(?<=[.!?])\s+", text)
-    return [part.strip() for part in parts if part.strip()]
+    protected = ABBREV.sub(lambda match: match.group(0)[:-1] + DOT, text)
+    protected = INITIAL.sub(lambda match: match.group(0)[:-1] + DOT, protected)
+    return [part.replace(DOT, ".").strip() for part in re.split(r"(?<=[.!?])\s+", protected) if part.strip()]
+
+
+def sentences_from_json(json_path: str | Path) -> list[str]:
+    article = json.loads(Path(json_path).read_text(encoding="utf-8"), strict=False)
+    return split_sentences(str(article.get("text", "")))
 
 
 def make_context_windows(sentences: list[str]) -> list[dict]:
