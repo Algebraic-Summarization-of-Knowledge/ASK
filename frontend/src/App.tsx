@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
+import Fusion from "./Fusion";
+import Stars, { type Match } from "./Stars";
 import Windows, { type Window } from "./Windows";
 
 type Article = { file: string; title: string };
 type Topic = { folder: string; articles: Article[] };
 type ArticleWindows = { file: string; windows: Window[] };
-type Match = {
-  index: number;
-  leading: string;
-  assigned: { file: string; index: number; leading: string; score: number }[];
-};
 
 export default function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -17,6 +14,8 @@ export default function App() {
   const [others, setOthers] = useState<string[]>([]);
   const [articles, setArticles] = useState<ArticleWindows[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [showEmbeddings, setShowEmbeddings] = useState(false);
+  const [showMatches, setShowMatches] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -65,6 +64,7 @@ export default function App() {
 
   return (
     <div>
+      <Fusion />
       <label>
         folder
         <select value={folder} onChange={(event) => pickFolder(event.target.value)}>
@@ -98,8 +98,6 @@ export default function App() {
         </label>
       )}
 
-      {source && windowsFor(source) && <Windows windows={windowsFor(source)!} />}
-
       {source &&
         rest.map((article) => (
           <div key={article.file}>
@@ -111,30 +109,45 @@ export default function App() {
               />
               {article.file} - {article.title}
             </label>
-            {windowsFor(article.file) && <Windows windows={windowsFor(article.file)!} />}
           </div>
         ))}
 
       {source && (
-        <button disabled={busy} onClick={convert}>
-          {busy ? "licze..." : "konwertuj"}
-        </button>
+        <>
+          <label>
+            <input
+              type="checkbox"
+              checked={showEmbeddings}
+              onChange={() => setShowEmbeddings((value) => !value)}
+            />
+            wyswietl embeddings
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showMatches}
+              onChange={() => setShowMatches((value) => !value)}
+            />
+            wyswietl dopasowania
+          </label>
+          <button disabled={busy} onClick={convert}>
+            {busy ? "licze..." : "konwertuj"}
+          </button>
+        </>
       )}
 
-      {matches.map((group) => (
-        <div key={group.index}>
-          <b>
-            source #{group.index}: {group.leading}
-          </b>
-          {group.assigned.length === 0
-            ? <div>brak dopasowan</div>
-            : group.assigned.map((item) => (
-                <div key={`${item.file}-${item.index}`}>
-                  {item.file} #{item.index} ({item.score.toFixed(3)}) {item.leading}
-                </div>
-              ))}
-        </div>
-      ))}
+      {showEmbeddings &&
+        [source, ...others].map(
+          (file) =>
+            windowsFor(file) && (
+              <div key={file}>
+                <b>{file}</b>
+                <Windows windows={windowsFor(file)!} />
+              </div>
+            ),
+        )}
+
+      {showMatches && <Stars matches={matches} />}
     </div>
   );
 }

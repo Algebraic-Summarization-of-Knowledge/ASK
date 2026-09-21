@@ -15,3 +15,20 @@ pre {
   white-space: pre-wrap;
   font-size: 12px;
 }
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  box-sizing: border-box;
+}
+
+svg {
+  display: block;
+  margin: 16px 0;
+  border: 1px solid #ccc;
+}
+
+svg circle {
+  cursor: grab;
+}
