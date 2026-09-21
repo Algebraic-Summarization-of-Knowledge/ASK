@@ -45,6 +45,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         try:
             payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+            if self.path == "/api/fusion":
+                from fusion import fuse
+
+                sentences = [str(item) for item in payload.get("sentences", [])]
+                self._write_json({"text": fuse(sentences)})
+                return
             if self.path != "/api/convert":
                 self._write_json({"error": "Nieznany endpoint."}, status_code=404)
                 return
