@@ -4,5 +4,6 @@ __pycache__/
 api.png
 data/
 corpus/
+reports/
 frontend/node_modules/
 frontend/dist/
