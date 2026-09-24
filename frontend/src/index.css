@@ -32,3 +32,20 @@ svg {
 svg circle {
   cursor: grab;
 }
+
+nav a {
+  margin-right: 12px;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  vertical-align: top;
+  max-width: 280px;
+}

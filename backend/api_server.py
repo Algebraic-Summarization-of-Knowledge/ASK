@@ -1,6 +1,7 @@
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse
 
 from analyze import analyze
 
@@ -9,6 +10,25 @@ HOST = "127.0.0.1"
 PORT = 8000
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CORPUS = PROJECT_ROOT / "corpus"
+
+
+def _list_topics() -> list[dict]:
+    topics = []
+    if not CORPUS.exists():
+        return topics
+    for folder in sorted(path for path in CORPUS.iterdir() if path.is_dir()):
+        articles = []
+        for path in sorted(folder.glob("article_*.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            articles.append({"file": path.name, "title": str(data.get("title") or path.name)})
+        if articles:
+            topics.append({"folder": folder.name, "articles": articles})
+    return topics
+
+
+def _model(payload: dict) -> str | None:
+    name = str(payload.get("model") or "").strip()
+    return name or None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -27,20 +47,21 @@ class Handler(BaseHTTPRequestHandler):
         self._write_json({}, status_code=204)
 
     def do_GET(self) -> None:
-        if self.path != "/api/topics":
+        path = urlparse(self.path).path
+        if path == "/api/labels":
+            from judge import LABELS, PRE_PROMPT
+            from llm import MODEL, list_models
+
+            self._write_json(
+                {"labels": list(LABELS), "prompt": PRE_PROMPT, "model": MODEL, "models": list_models()}
+            )
+            return
+        if path != "/api/topics":
             self._write_json({"error": "Nieznany endpoint."}, status_code=404)
             return
+        from llm import MODEL, list_models
 
-        topics = []
-        if CORPUS.exists():
-            for folder in sorted(path for path in CORPUS.iterdir() if path.is_dir()):
-                articles = []
-                for path in sorted(folder.glob("article_*.json")):
-                    data = json.loads(path.read_text(encoding="utf-8"))
-                    articles.append({"file": path.name, "title": str(data.get("title") or path.name)})
-                if articles:
-                    topics.append({"folder": folder.name, "articles": articles})
-        self._write_json({"topics": topics})
+        self._write_json({"topics": _list_topics(), "model": MODEL, "models": list_models()})
 
     def do_POST(self) -> None:
         try:
@@ -49,7 +70,32 @@ class Handler(BaseHTTPRequestHandler):
                 from fusion import fuse
 
                 sentences = [str(item) for item in payload.get("sentences", [])]
-                self._write_json({"text": fuse(sentences)})
+                self._write_json({"text": fuse(sentences, _model(payload))})
+                return
+            if self.path == "/api/judge":
+                from judge import classify
+
+                self._write_json(
+                    {
+                        "label": classify(
+                            payload.get("source") or {},
+                            payload.get("other") or {},
+                            _model(payload),
+                        )
+                    }
+                )
+                return
+            if self.path == "/api/report":
+                from report import save_report
+
+                path = save_report(
+                    str(payload.get("folder") or "topic"),
+                    str(payload.get("source") or ""),
+                    [str(name) for name in payload.get("others") or [] if name],
+                    list(payload.get("pairs") or []),
+                    _model(payload),
+                )
+                self._write_json({"file": path})
                 return
             if self.path != "/api/convert":
                 self._write_json({"error": "Nieznany endpoint."}, status_code=404)

@@ -17,6 +17,7 @@ export default function App() {
   const [showEmbeddings, setShowEmbeddings] = useState(false);
   const [showMatches, setShowMatches] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     fetch("/api/topics")
@@ -41,6 +42,7 @@ export default function App() {
     setSource("");
     setOthers([]);
     reset();
+    setErr("");
   }
 
   function toggleOther(file: string) {
@@ -57,8 +59,14 @@ export default function App() {
       body: JSON.stringify({ folder, source, others }),
     });
     const data = await response.json();
-    setArticles(data.articles ?? []);
-    setMatches(data.matches ?? []);
+    if (data.error) {
+      setErr(data.error);
+      reset();
+    } else {
+      setErr("");
+      setArticles(data.articles ?? []);
+      setMatches(data.matches ?? []);
+    }
     setBusy(false);
   }
 
@@ -76,6 +84,7 @@ export default function App() {
           ))}
         </select>
       </label>
+      {err && <p>{err}</p>}
 
       {topic && (
         <label>
