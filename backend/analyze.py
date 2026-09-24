@@ -3,6 +3,7 @@ from pathlib import Path
 from assign_windows import assign_windows_to_source
 from context_windows import make_context_windows, sentences_from_json
 from embeddings import embed_windows
+from judge import pairs_from_groups
 
 
 def windows_from_article(path: Path) -> list[dict]:
@@ -54,4 +55,9 @@ def analyze(folder: Path, source_name: str, other_names: list[str]) -> dict:
             }
         )
 
-    return {"articles": articles, "matches": matches}
+    return {
+        "articles": articles,
+        "matches": matches,
+        "pairs": pairs_from_groups(groups, other_names),
+        "labels": ["duplicate", "fusion", "new", "delete"],
+    }
