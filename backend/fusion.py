@@ -1,8 +1,4 @@
-import json
-import urllib.request
-
-MODEL = "llama3.2"
-OLLAMA = "http://127.0.0.1:11434/api/generate"
+from llm import generate
 
 MASTER = """You fuse news sentences about the same event into one text.
 
@@ -19,24 +15,10 @@ Sentences:
 """
 
 
-def fuse(sentences: list[str]) -> str:
+def fuse(sentences: list[str], model: str | None = None) -> str:
     clean = [text.strip() for text in sentences if text.strip()]
     if len(clean) < 2:
         raise ValueError("Podaj co najmniej dwa zdania.")
 
     numbered = "\n".join(f"{i}. {text}" for i, text in enumerate(clean, start=1))
-    body = json.dumps(
-        {
-            "model": MODEL,
-            "prompt": f"{MASTER}{numbered}",
-            "stream": False,
-            "options": {"temperature": 0},
-        }
-    ).encode()
-    request = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = json.loads(response.read().decode())
-    text = (data.get("response") or "").strip()
-    if not text:
-        raise RuntimeError("Model nic nie zwrocil.")
-    return text
+    return generate(f"{MASTER}{numbered}", model=model)
