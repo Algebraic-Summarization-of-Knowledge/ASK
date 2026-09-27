@@ -11,19 +11,19 @@ no explanation, no markdown. Do not copy the examples.
 Schema: {"claim": "same" | "diff" | "junk", "label": "duplicate" | "fusion" | "new" | "delete"}
 
 claim:
-same — OTHER makes the same claim as SOURCE (same who + what).
-diff — OTHER makes a different claim.
-junk — OTHER makes no claim at all: a question, a reaction, small talk,
+same - OTHER makes the same claim as SOURCE (same who + what).
+diff - OTHER makes a different claim.
+junk - OTHER makes no claim at all: a question, a reaction, small talk,
        a remark about the interview/article itself, or boilerplate.
 
 label:
-duplicate — claim is same, only wording differs.
-fusion — claim is same, OTHER adds a name, number, quote, or time.
-new — claim is diff, but still that same deal / meeting / call.
-delete — claim is diff or junk: wrong topic, or not a claim at all.
+duplicate - claim is same, only wording differs.
+fusion - claim is same, OTHER adds a name, number, quote, or time.
+new - claim is diff, but still that same deal / meeting / call.
+delete - claim is diff or junk: wrong topic, or not a claim at all.
 
 A: Riyadh and Tehran renewed diplomatic ties.
-B: Iran and Saudi Arabia renewed diplomatic ties.
+B: Iran and Saudi Arabia renewed diplomatic ties.   
 {"claim": "same", "label": "duplicate"}
 
 A: Riyadh and Tehran renewed diplomatic ties.
