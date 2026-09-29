@@ -1,10 +1,12 @@
 import { useState } from "react";
+import Button from "./components/Button";
 
-export default function Fusion() {
-  const [open, setOpen] = useState(false);
+export default function Fusion({ hidden = false }: { hidden?: boolean }) {
   const [sentences, setSentences] = useState(["", ""]);
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const ready = sentences.filter((text) => text.trim()).length >= 2;
 
   function setSentence(index: number, value: string) {
     setSentences((current) => current.map((text, i) => (i === index ? value : text)));
@@ -13,36 +15,37 @@ export default function Fusion() {
   async function run() {
     setBusy(true);
     setResult("");
+    setErr("");
     const response = await fetch("/api/fusion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sentences }),
     });
     const data = await response.json();
-    setResult(data.text || data.error || "");
+    if (data.error) setErr(data.error);
+    else setResult(data.text ?? "");
     setBusy(false);
   }
 
   return (
-    <div>
-      <button onClick={() => setOpen((value) => !value)}>fuzja</button>
-      {open && (
-        <>
-          {sentences.map((text, index) => (
-            <textarea
-              key={index}
-              value={text}
-              placeholder={`zdanie ${index + 1}`}
-              onChange={(event) => setSentence(index, event.target.value)}
-            />
-          ))}
-          <button onClick={() => setSentences((current) => [...current, ""])}>dodaj zdanie</button>
-          <button disabled={busy} onClick={run}>
-            {busy ? "scalam..." : "scal"}
-          </button>
-          {result && <pre>{result}</pre>}
-        </>
-      )}
+    <div className="panel" hidden={hidden}>
+      {sentences.map((text, index) => (
+        <textarea
+          key={index}
+          className="field"
+          value={text}
+          placeholder={`Zdanie ${index + 1}`}
+          onChange={(event) => setSentence(index, event.target.value)}
+        />
+      ))}
+      <div className="actions">
+        <Button onClick={() => setSentences((current) => [...current, ""])}>Dodaj zdanie</Button>
+        <Button active={ready} disabled={busy || !ready} onClick={run}>
+          {busy ? "Scalam…" : "Scal"}
+        </Button>
+      </div>
+      {err && <p className="note">{err}</p>}
+      {result && <pre className="block">{result}</pre>}
     </div>
   );
 }
