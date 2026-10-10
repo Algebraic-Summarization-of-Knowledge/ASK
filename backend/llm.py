@@ -1,41 +1,42 @@
-import json
-import re
-import urllib.request
+import os
+from functools import lru_cache
 
-MODEL = "qwen3:8b"
-OLLAMA = "http://127.0.0.1:11434/api/generate"
-TAGS = "http://127.0.0.1:11434/api/tags"
+MODEL = "gpt-5-mini"
 
+MODELS = [
+    "gpt-5-nano",
+    "gpt-5-mini",
+    "gpt-5.4-nano",
+    "gpt-5.4-mini",
+    "gpt-5.4",
+]
 
 def list_models() -> list[str]:
-    try:
-        with urllib.request.urlopen(TAGS, timeout=5) as response:
-            data = json.loads(response.read().decode())
-    except OSError:
-        return [MODEL]
-    names = [str(item.get("name") or "") for item in data.get("models") or []]
-    names = [name for name in names if name]
-    if MODEL not in names:
-        names.insert(0, MODEL)
-    return names
+    return MODELS
 
+@lru_cache(maxsize=1)
+def _client():
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError("Zainstaluj klienta API: pip install openai") from exc
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("Ustaw zmienna srodowiskowa OPENAI_API_KEY.")
+    return OpenAI(timeout=120.0, max_retries=2)
 
 def generate(prompt: str, json_mode: bool = False, model: str | None = None) -> str:
-    payload = {
+    kwargs = {
         "model": model or MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "think": False,
-        "options": {"temperature": 0},
+        "messages": [{"role": "user", "content": prompt}],
     }
     if json_mode:
-        payload["format"] = "json"
-    body = json.dumps(payload).encode()
-    request = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=300) as response:
-        data = json.loads(response.read().decode())
-    text = (data.get("response") or "").strip()
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S | re.I).strip()
+        kwargs["response_format"] = {"type": "json_object"}
+
+    response = _client().chat.completions.create(**kwargs)
+    choice = response.choices[0]
+    if choice.finish_reason == "length":
+        raise RuntimeError("Odpowiedz modelu zostala ucieta; zwieksz limit tokenow.")
+    text = (choice.message.content or "").strip()
     if not text:
         raise RuntimeError("Model nic nie zwrocil.")
     return text
