@@ -5,46 +5,150 @@ from llm import generate
 
 LABELS = ("duplicate", "fusion", "new", "delete")
 
-PRE_PROMPT = """Compare SOURCE and OTHER. Reply with compact JSON only, nothing else,
-no explanation, no markdown. Do not copy the examples.
+PRE_PROMPT = """You are a semantic claim classifier for multi-document
+news summarization.
 
-Schema: {"claim": "same" | "diff" | "junk", "label": "duplicate" | "fusion" | "new" | "delete"}
+Compare SOURCE and OTHER and decide how the main factual information in OTHER relates to SOURCE.
 
-claim:
-same - OTHER makes the same claim as SOURCE (same who + what).
-diff - OTHER makes a different claim.
-junk - OTHER makes no claim at all: a question, a reaction, small talk,
-       a remark about the interview/article itself, or boilerplate.
+Each text contains:
+- prev: preceding sentence (context only)
+- lead: sentence being classified
+- next: following sentence (context only)
 
-label:
-duplicate - claim is same, only wording differs.
-fusion - claim is same, OTHER adds a name, number, quote, or time.
-new - claim is diff, but still that same deal / meeting / call.
-delete - claim is diff or junk: wrong topic, or not a claim at all.
+IMPORTANT: Classify the LEAD sentences.
+Use prev and next to resolve references, identify the event and understand the surrounding context. Do not classify neighboring sentences as separate claims.
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: Iran and Saudi Arabia renewed diplomatic ties.   
-{"claim": "same", "label": "duplicate"}
+Return only valid JSON:
+{"claim": "same" | "diff" | "junk",
+ "label": "duplicate" | "fusion" | "new" | "delete"}
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: Iran and Saudi agreed to restore relations and reopen embassies.
-{"claim": "same", "label": "fusion"}
+CLAIM RELATION:
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: China brokered the deal in Beijing after two years of talks.
-{"claim": "diff", "label": "new"}
+same:
+SOURCE and OTHER express the same core factual assertion.
+They describe the same action, state, or development
+involving the same relevant entities.
+OTHER may provide additional specific details.
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: Nonalignment was the default in the last bipolar period.
-{"claim": "diff", "label": "delete"}
+diff:
+OTHER expresses a distinct factual assertion.
+This includes a different action, cause, consequence,
+reaction, opinion, decision, or development.
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: HOST: We're going to have to leave it there.
-{"claim": "junk", "label": "delete"}
+junk:
+OTHER contains no relevant factual assertion.
+Examples: pure greetings, filler, navigation text,
+or questions without factual content.
 
-A: Riyadh and Tehran renewed diplomatic ties.
-B: Do you think that was the right call?
-{"claim": "junk", "label": "delete"}
+CLASSIFICATION LABELS:
+
+duplicate:
+The core claim is the same and OTHER adds no materially
+new information. Differences in wording are irrelevant.
+
+fusion:
+The core claim is the same, but OTHER adds factual details
+such as names, dates, numbers, locations, quotations,
+qualifications, or other specific attributes.
+
+new:
+OTHER expresses a distinct factual claim that belongs
+to the same identifiable event, decision, process,
+or closely connected development as SOURCE.
+This includes causes, effects, reactions, and perspectives that introduce separate claims.
+
+delete:
+OTHER is unrelated to the specific event or process
+described in SOURCE, or contains no usable claim.
+General thematic similarity alone is insufficient.
+
+DECISION RULES:
+
+1. Identify the core claim in SOURCE and OTHER:
+   who or what, action or state, and relevant context.
+
+2. Determine whether both leads assert the same
+   core factual proposition.
+   If yes:
+   - no new details -> duplicate
+   - additional details -> fusion
+
+3. If they assert different propositions:
+   - same identifiable event or process -> new
+   - unrelated event or only broad topic similarity -> delete
+
+4. Do NOT use fusion merely because two sentences
+   can be combined into a coherent paragraph.
+
+5. A shared topic, person, organization, or keyword
+   does not prove that two claims are the same.
+
+6. Distinguish a statement from a statement ABOUT it.
+   A person's support for a policy and another person's
+   criticism of its consequences are different claims.
+
+7. Questions and interview transcripts may contain
+   relevant factual assertions or attributed quotations.
+   Do not discard them solely because they are questions.
+   Do not turn allegations or opinions into established facts.
+
+8. If a lead contains several claims, classify its
+   main assertion. Use context to resolve ambiguity.
+   Do not invent missing information.
+
+9. Contradictory claims about the same event are not
+   duplicates. Treat distinct conflicting assertions
+   as new rather than merging them as established facts.
+
+10. Interview and transcript content: Distinguish substantive event information from
+conversational or editorial content.
+
+Classify as delete when OTHER is only:
+- an introduction of a speaker without a new
+  event-relevant fact,
+- a conversational reaction or interruption,
+- an evaluation of someone's suitability to comment,
+- a vague remark without recoverable factual meaning.
+
+EXAMPLES:
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: Iran and Saudi Arabia renewed diplomatic ties.
+{"claim":"same","label":"duplicate"}
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: Iran and Saudi Arabia agreed to restore
+relations and reopen their embassies.
+{"claim":"same","label":"fusion"}
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: China brokered the agreement in Beijing.
+{"claim":"diff","label":"new"}
+
+SOURCE: A politician supported weakening bank regulations.
+OTHER: A senator blamed weakened regulations
+for recent bank failures.
+{"claim":"diff","label":"new"}
+
+SOURCE: Congress increased the threshold for strict
+supervision of large banks.
+OTHER: Congress set the new threshold
+at $250 billion in assets.
+{"claim":"same","label":"fusion"}
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: Nonalignment was common during the Cold War.
+{"claim":"diff","label":"delete"}
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: HOST: We have to leave it there.
+{"claim":"junk","label":"delete"}
+
+SOURCE: Riyadh and Tehran renewed diplomatic ties.
+OTHER: Do you think that was the right decision?
+{"claim":"junk","label":"delete"}
+
+Return only the JSON object.
 """
 
 
@@ -94,71 +198,80 @@ def pairs_from_groups(groups: list[dict], other_names: list[str]) -> list[dict]:
 
 
 def same_lead(source: dict, other: dict) -> bool:
-    left = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", (source.get("leading") or "").lower())).strip()
-    right = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", (other.get("leading") or "").lower())).strip()
+    left = re.sub(r"\s+", " ", source.get("leading", "").strip().casefold())
+
+    right = re.sub(r"\s+", " ", other.get("leading", "").strip().casefold())
+
     return bool(left) and left == right
 
 
-SPEAKER_TAG = re.compile(r"^[A-Z][A-Za-z .]{0,24}:\s*")
+SPEAKER_TAG = re.compile(r"^[A-Z][A-Za-z .]{0,30}:\s*")
 
-
-def strip_speaker_tag(text: str) -> str:
-    """Zdejmuje etykiete mowcy z transkryptu (np. FRANK: Thank you. -> Thank you.)."""
-    return SPEAKER_TAG.sub("", text, count=1)
-
+JUNK_PATTERNS = [
+    r"^(thank you|thanks|welcome|okay|all right|right)\W*$",
+    r"^(good morning|good evening|goodbye)\W*$",
+    r"^(advertisement|also read|newsletter)\b",
+    r"privacy policy|recaptcha|copyright",
+    r"skip past newsletter|transcript provided by",
+]
 
 def junk_lead(window: dict) -> bool:
     raw = (window.get("leading") or "").strip()
+
     if not raw:
         return True
 
-    # Liczymy slowa i sprawdzamy ksztalt zdania bez etykiety mowcy z transkryptu,
-    # inaczej "BARNEY FRANK: Thank you." wyglada na dluzsze niz jest naprawde.
-    text = strip_speaker_tag(raw)
+    text = SPEAKER_TAG.sub("", raw).strip()
+
     if not text:
         return True
-    if len(re.findall(r"[A-Za-z]+", text)) < 4:
-        return True
-    # Pytanie prowadzacego albo zdanie urwane w polowie to nie jest fakt do fuzji.
-    if text.endswith("?"):
-        return True
-    if text.startswith("...") or text.endswith("..."):
-        return True
 
-    low = text.lower()
-    if re.match(r"^(in this photo|photograph:|photo:|advertisement\b|also read:)", low):
-        return True
-    return bool(
-        re.search(
-            r"privacy policy|recaptcha|newsletter|contributing:|additional reporting|"
-            r"skip past newsletter|copyright|transcript provided by",
-            low,
-        )
-    )
-
+    return any(re.search(pattern, text, re.I) for pattern in JUNK_PATTERNS)
 
 def parse_label(raw: str) -> str:
-    text = re.sub(r"<think>.*?</think>", " ", raw, flags=re.S | re.I).strip()
-    try:
-        data = json.loads(text)
-        claim = str(data.get("claim", "")).strip().lower()
-        label = str(data.get("label", "")).strip().lower()
-    except (json.JSONDecodeError, AttributeError):
-        raise ValueError(f"Model nie zwrocil poprawnego JSON: {raw[:120]}")
-    if label not in LABELS:
-        raise ValueError(f"Nieznany label w JSON: {raw[:120]}")
-    if claim == "junk":
-        return "delete"
-    if claim == "diff" and label in ("fusion", "duplicate"):
-        return "delete"
-    if claim == "same" and label in ("new", "delete"):
-        return "fusion"
+    text = re.sub(r"<think>.*?</think>", "", raw, flags=re.S | re.I).strip()
+
+    data = json.loads(text)
+
+    claim = data.get("claim")
+    label = data.get("label")
+
+    valid = {
+        "duplicate": ("same",),
+        "fusion": ("same",),
+        "new": ("diff",),
+        "delete": ("diff", "junk"),
+    }
+
+    if label not in valid:
+        raise ValueError(f"Invalid label: {raw}")
+
+    if claim not in valid[label]:
+        raise ValueError(
+            f"Inconsistent classification: {raw}"
+        )
+
     return label
 
-
 def classify(source: dict, other: dict, model: str | None = None) -> str:
+
     if same_lead(source, other):
         return "duplicate"
+
     if junk_lead(other):
         return "delete"
-    return parse_label(generate(example(source, other), json_mode=True, model=model))
+
+    prompt = example(source, other)
+
+    raw = generate(prompt,json_mode=True,model=model)
+
+    try:
+        return parse_label(raw)
+
+    except (ValueError, json.JSONDecodeError):
+
+        repair_prompt = (prompt+ "\n\nYour previous response was inconsistent ""or invalid:\n"+ raw+ "\nReturn a corrected JSON object ""following the schema exactly.")
+
+        repaired = generate(repair_prompt,json_mode=True,model=model)
+
+        return parse_label(repaired)
