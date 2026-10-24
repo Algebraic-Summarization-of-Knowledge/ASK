@@ -4,8 +4,9 @@ import Analyze from "./Analyze";
 import Dataset from "./Dataset";
 import Fusion from "./Fusion";
 import Import from "./Import";
+import Research from "./Research";
 
-type Page = "dataset" | "import" | "analyze" | "fusion";
+type Page = "dataset" | "import" | "analyze" | "fusion" | "research";
 type Source = "dataset" | "import";
 
 const PAGES: { id: Page; label: ReactNode; menu?: { id: Source; label: string }[] }[] = [
@@ -28,6 +29,7 @@ const PAGES: { id: Page; label: ReactNode; menu?: { id: Source; label: string }[
     ],
   },
   { id: "fusion", label: "Fuzja" },
+  { id: "research", label: "Badania" },
 ];
 
 export default function App() {
@@ -50,6 +52,7 @@ export default function App() {
       <Import hidden={page !== "import"} />
       <Analyze hidden={page !== "analyze"} from={analyzeFrom} />
       <Fusion hidden={page !== "fusion"} />
+      {page === "research" && <Research />}
     </div>
   );
 }
